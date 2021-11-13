@@ -9,6 +9,8 @@ function MainAssistant() {
        to the scene controller (this.controller) has not be established yet, so any initialization
        that needs the scene controller should be done in the setup function below. */
     this.zoomLevel = 9;
+    this.orientation = "unknown";
+    this.mapData = null;
 }
 
 MainAssistant.prototype.setup = function() {
@@ -44,6 +46,7 @@ MainAssistant.prototype.setup = function() {
     };
     this.controller.setupWidget("btnGet", this.submitBtnAttrs, this.submitBtnModel);
     //Loading spinner - with global members for easy toggling later
+    /*
     this.spinnerAttrs = {
         spinnerSize: Mojo.Widget.spinnerLarge
     };
@@ -51,6 +54,7 @@ MainAssistant.prototype.setup = function() {
         spinning: false
     }
     this.controller.setupWidget('workingSpinner', this.spinnerAttrs, this.spinnerModel);
+    */
     //Map Scroller
     this.controller.setupWidget("divShowResultImage",
         this.attributes = {
@@ -89,10 +93,11 @@ MainAssistant.prototype.setup = function() {
     this.controller.setupWidget(Mojo.Menu.commandMenu, this.cmdMenuAttributes, this.cmdMenuModel);
 
     /* Always on Event handlers */
-    Mojo.Event.listen(this.controller.get("btnGet"), Mojo.Event.tap, this.handleClick.bind(this));
+    Mojo.Event.listen(this.controller.get("btnGet"), Mojo.Event.tap, this.handleSearchClick.bind(this));
     // Non-Mojo widgets
     Mojo.Event.listen(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap.bind(this));
     $("btnClear").addEventListener("click", this.handleClearTap.bind(this));
+    $("imgMap").addEventListener("click", this.handleMapTap.bind(this));
     this.keyupHandler = this.handleKeyUp.bindAsEventListener(this);
     this.controller.document.addEventListener("keyup", this.keyupHandler, true);
 
@@ -125,6 +130,7 @@ MainAssistant.prototype.activate = function(event) {
         Mojo.Additions.ShowDialogBox("Welcome to Retro Maps!", "This is a client for a Retro Maps web service, which is powered by Bing Maps and IPInfo.io. You can use the community server for free, until its API limits are hit, or you can enhance your privacy and ease the load by hosting the service yourself.");
     }
 
+    this.orientation = this.determineOrientation();
     //find out what kind of device this is
     if (Mojo.Environment.DeviceInfo.platformVersionMajor >= 3) {
         this.DeviceType = "TouchPad";
@@ -145,41 +151,21 @@ MainAssistant.prototype.activate = function(event) {
     if (appModel.LaunchQuery != "") {
         Mojo.Log.info("using launch query: " + appModel.LaunchQuery);
         $("txtSearch").mojo.setValue(appModel.LaunchQuery);
-        this.handleClick();
+        this.handleSearchClick();
     } else {
         if (appModel.LastSearchString) {
             $("txtSearch").mojo.setValue(appModel.LastSearchString);
-            this.handleClick();
+            this.handleSearchClick();
         } else {
             this.getLocationFix();
         }
     }
     //Get ready for input!
     this.controller.window.onresize = this.calculateControlsPosition.bind(this);
+
 };
 
-MainAssistant.prototype.calculateControlsPosition = function() {
-    Mojo.Log.info("Resizing viewer");
-    var chromeHeight = document.getElementById("divTitle").offsetHeight;
-    chromeHeight += document.getElementById("drawerControls").offsetHeight;
-    Mojo.Log.info("chrome height: " + chromeHeight);
-    var div = document.getElementById("divShowResultImage");
-
-    var newWidth, newHeight;
-    var screenHeight = window.innerHeight;
-    var screenWidth = window.innerWidth;
-
-    if (screenWidth < screenHeight) {   //Up orientation
-        newWidth = "800px";
-        newHeight = (1024 - chromeHeight) + "px";
-    } else {    //Sideways
-        newWidth = "1024px";
-        newHeight = (800 - chromeHeight) + "px";
-    }
-    div.style.width = newWidth;
-    div.style.height = newHeight;
-    Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
-}
+/* UI Events */
 
 //Handle menu and button bar commands
 MainAssistant.prototype.handleCommand = function(event) {
@@ -202,17 +188,6 @@ MainAssistant.prototype.handleCommand = function(event) {
     }
 };
 
-MainAssistant.prototype.changeZoom = function(up) {
-    if (up) { //increase zoom
-        if (this.zoomLevel < 20)
-            this.zoomLevel++;
-    } else { //decrease zoom
-        if (this.zoomLevel >0)
-            this.zoomLevel--;
-    }
-    this.handleClick();
-}
-
 //Handles the enter key
 MainAssistant.prototype.handleKeyUp = function(event) {
 
@@ -224,7 +199,7 @@ MainAssistant.prototype.handleKeyUp = function(event) {
 };
 
 //Handle mojo button taps
-MainAssistant.prototype.handleClick = function(event) {
+MainAssistant.prototype.handleSearchClick = function(event) {
 
     this.disableUI();
 
@@ -243,18 +218,14 @@ MainAssistant.prototype.handleClick = function(event) {
     }
 }
 
+//Handle tap of title bar
 MainAssistant.prototype.handleTitleTap = function() {
     $("drawerControls").mojo.toggleState();
-    //this.calculateControlsPosition();
     this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 500);
 }
 
-//Handle non-mojo button taps
-this.cancelDownload = false;
+//Handle clear button tap
 MainAssistant.prototype.handleClearTap = function() {
-
-    //Tell any downloads to cancel
-    this.cancelDownload = true;
 
     //Clear the text box
     $("txtSearch").mojo.setValue("");
@@ -271,17 +242,40 @@ MainAssistant.prototype.handleClearTap = function() {
     $("txtSearch").mojo.focus();
 }
 
-//Handle list item taps
-MainAssistant.prototype.handleListClick = function(event) {
-    Mojo.Log.info("Item tapped: " + event.item.title + ", id: " + event.item.id);
-
-    Mojo.Log.info("Item details: " + JSON.stringify(event.item.data));
-    appModel.LastPodcastSelected = event.item.data;
-    var stageController = Mojo.Controller.stageController;
-    stageController.pushScene({ transition: Mojo.Transition.crossFade, name: "detail" });
-
-    return false;
+//Handle map taps
+MainAssistant.prototype.handleMapTap = function(event) {
+    //Mojo.Additions.EnumerateObject(event);
+    Mojo.Log.warn("** Current lat,long: " + this.mapData.centerpoint);
+    var xSegments = Math.round($("imgMap").width / 3);
+    var xPos = -2;
+    for (var xCheck=0; xCheck < $("imgMap").width; xCheck=xCheck+xSegments)
+    {
+        if (event.x > xCheck)
+            xPos++;
+    }
+    var ySegments = Math.round($("imgMap").height / 3);
+    var yPos = -2;
+    for (var yCheck=0; yCheck < $("imgMap").height; yCheck=yCheck+ySegments)
+    {
+        if (event.y > yCheck)
+            yPos++;
+    }
+    /*
+    Mojo.Log.info("You tapped X: " + event.x + ", Y: " + event.y);
+    Mojo.Log.info("I calculated your tap segment as xpos " + xPos + ", ypos " + yPos);
+    if (xPos > 0) { Mojo.Log.info("I should move east on the longitude"); }
+    if (xPos < 0) { Mojo.Log.info("I should move west on the longitude"); }
+    if (yPos > 0) { Mojo.Log.info("I should move south on the latitude"); }
+    if (yPos < 0) { Mojo.Log.info("I should move north on the latitude"); }
+    */
+    var newLong = serviceModel.calculateNewLongitude(xPos, this.mapData.longitude, this.mapData.zoomLevel);
+    var newLat = serviceModel.calculateNewLatitude(yPos, this.mapData.latitude, this.mapData.zoomLevel);
+    Mojo.Log.warn("** New lat,long: " + newLat + "," + newLong);
+    $("txtSearch").mojo.setValue(newLat + "," + newLong);
+    this.handleSearchClick();
 }
+
+/* Map Stuff */
 
 //Try to find the location
 MainAssistant.prototype.getLocationFix = function() {
@@ -299,7 +293,7 @@ MainAssistant.prototype.getLocationFix = function() {
                     
                     appModel.LastSearchResult = responseObj.location;
                     $("txtSearch").mojo.setValue(responseObj.location);
-                    this.handleClick();
+                    this.handleSearchClick();
                 } else {
                     Mojo.Log.warn("IP GeoFix response was empty. Either there was no matching results, or there were server or connectivity problems.");
                     Mojo.Additions.ShowDialogBox("Geolocation Error", "The server could not locate this client.");
@@ -309,12 +303,16 @@ MainAssistant.prototype.getLocationFix = function() {
     }.bind(this));
 }
 
-//Send a search request to Podcast Directory
+//Send a search request to Maps Service
 MainAssistant.prototype.searchMapData = function(searchRequest) {
     Mojo.Log.info("Search requested: " + searchRequest);
     this.SearchValue = searchRequest;
-    Mojo.Log.warn("maptype: " + appModel.AppSettingsCurrent["DefaultView"]);
-    serviceModel.DoMapDataRequest(searchRequest, appModel.AppSettingsCurrent["DefaultView"], this.zoomLevel, function(response) {
+    Mojo.Log.info("- Map type: " + appModel.AppSettingsCurrent["DefaultView"]);
+    //var mapSize = window.innerWidth + "," + window.innerHeight;
+    var mapSize = Mojo.Environment.DeviceInfo.screenWidth + "," + Mojo.Environment.DeviceInfo.screenHeight;
+    Mojo.Log.info("- Map size: " + mapSize);
+
+    serviceModel.DoMapDataRequest(searchRequest, appModel.AppSettingsCurrent["DefaultView"], mapSize, this.zoomLevel, function(response) {
         Mojo.Log.info("ready to process search results: " + response);
         if (response != null && response != "") {
             var responseObj = JSON.parse(response);
@@ -341,25 +339,73 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
 
 //Update the UI with search results from Search Request
 MainAssistant.prototype.updateMapImage = function(mapData) {
+    if (mapData.img) {
+        this.mapData = mapData;
+        Mojo.Log.info("Updating map image with: " + mapData.img);
+        $("imgMap").src = mapData.img;
+        $("drawerControls").mojo.setOpenState(false);
+    }
+}
 
-    Mojo.Log.info("Updating map image with: " + mapData.img);
-    $("imgMap").src = mapData.img;
-    //$("divShowResultImage").style.display = "block";
+MainAssistant.prototype.changeZoom = function(up) {
+    if (up) { //increase zoom
+        if (this.zoomLevel < 20)
+            this.zoomLevel++;
+    } else { //decrease zoom
+        if (this.zoomLevel >0)
+            this.zoomLevel--;
+    }
+    this.handleSearchClick();
+}
+
+/* Screen Stuff */
+MainAssistant.prototype.determineOrientation = function() {
+    if (window.innerHeight > window.innerWidth)
+        return "portrait";
+    else
+        return "landsapce";
+}
+
+MainAssistant.prototype.calculateControlsPosition = function() {
+    Mojo.Log.info("Resizing viewer");
+    var chromeHeight = document.getElementById("divTitle").offsetHeight;
+    chromeHeight += document.getElementById("drawerControls").offsetHeight;
+    Mojo.Log.info("chrome height: " + chromeHeight);
+    var div = document.getElementById("divShowResultImage");
+
+    var newWidth, newHeight;
+    var screenHeight = window.innerHeight;
+    var screenWidth = window.innerWidth;
+
+    if (screenWidth < screenHeight) {   //Up orientation
+        newWidth = "800px";
+        newHeight = (1024 - chromeHeight) + "px";
+    } else {    //Sideways
+        newWidth = "1024px";
+        newHeight = (800 - chromeHeight) + "px";
+    }
+    div.style.width = newWidth;
+    div.style.height = newHeight;
+    Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
+    if (this.orientation != this.determineOrientation()){
+        this.orientation = this.determineOrientation();
+        Mojo.Log.info("Orientation changed, requesting new map");
+        this.handleSearchClick();
+    }
 }
 
 MainAssistant.prototype.disableUI = function(statusValue) {
     //start spinner
-    if (!this.spinnerModel.spinning) {
-        this.spinnerModel.spinning = true;
-        this.controller.modelChanged(this.spinnerModel);
-    }
-
-    if (statusValue && statusValue != "") {
-        $("divWorkingStatus").style.display = "block";
-        $("divStatusValue").innerHTML = statusValue;
-    } else {
-        $("divWorkingStatus").style.display = "none";
-    }
+    //if (!this.spinnerModel.spinning) {
+    //    this.spinnerModel.spinning = true;
+    //    this.controller.modelChanged(this.spinnerModel);
+    //}
+    //if (statusValue && statusValue != "") {
+    //    $("divWorkingStatus").style.display = "block";
+    //    $("divStatusValue").innerHTML = statusValue;
+    //} else {
+    //    $("divWorkingStatus").style.display = "none";
+    //}
 
     //disable submit button
     if (!this.submitBtnModel.disabled) {
@@ -370,25 +416,28 @@ MainAssistant.prototype.disableUI = function(statusValue) {
 
 MainAssistant.prototype.enableUI = function() {
     //stop spinner
-    this.spinnerModel.spinning = false;
-    this.controller.modelChanged(this.spinnerModel);
+    //this.spinnerModel.spinning = false;
+    //this.controller.modelChanged(this.spinnerModel);
 
     //hide status
-    $("divWorkingStatus").style.display = "none";
-    $("divStatusValue").innerHTML = "";
+    //$("divWorkingStatus").style.display = "none";
+    //$("divStatusValue").innerHTML = "";
 
     //enable submit button
     this.submitBtnModel.disabled = false;
     this.controller.modelChanged(this.submitBtnModel);
 }
 
+/* End of Life Stuff */
 MainAssistant.prototype.deactivate = function(event) {
     /* remove any event handlers you added in activate and do any other cleanup that should happen before
        this scene is popped or another scene is pushed on top */
-    Mojo.Event.stopListening(this.controller.get("btnGet"), Mojo.Event.tap, this.handleClick);
+    Mojo.Event.stopListening(this.controller.get("btnGet"), Mojo.Event.tap, this.handleSearchClick);
     // Non-Mojo widgets
-    $("imgSearchClear").removeEventListener("click", this.handleClearTap);
     Mojo.Event.stopListening(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap);
+    $("imgSearchClear").removeEventListener("click", this.handleClearTap);
+    $("imgMap").removeEventListener("click", this.handleMapTap.bind(this));
+    this.controller.document.removeEventListener("keyup", this.keyupHandler);
 };
 
 MainAssistant.prototype.cleanup = function(event) {

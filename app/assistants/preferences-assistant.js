@@ -28,9 +28,11 @@ PreferencesAssistant.prototype.setup = function() {
             label: $L("Default Zoom"),
             choices: [
                 { label: "4", value: 4 },
+                { label: "6", value: 6 },
                 { label: "9", value: 9 },
-                { label: "13", value: 13 },
-                { label: "16", value: 18 }
+                { label: "11", value: 11 },
+                { label: "15", value: 15 },
+                { label: "19", value: 19 },
             ]
         },
         this.model = {
