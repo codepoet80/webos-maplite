@@ -8,8 +8,8 @@ Podcast Directory Model - Mojo
 */
 
 var ServiceModel = function() {
-    //this.urlBase = "http://www.webosarchive.com/maps/";
-    this.urlBase = "http://192.168.1.232/retro-maps/";
+    this.urlBase = "http://www.webosarchive.com/maps/";
+    //this.urlBase = "http://192.168.1.232/retro-maps/";
     this.supportedMapTypes = ["Road", "Aerial", "AerialWithLabels"]
 };
 
