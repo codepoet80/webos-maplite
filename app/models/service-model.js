@@ -1,14 +1,14 @@
 /*
-Podcast Directory Model - Mojo
+Maps Service Model - Mojo
  Version 1.0
  Created: 2021
  Author: Jonathan Wise
  License: MIT
- Description: A model to interact with Retro Podcast Directory service within a Mojo app.
+ Description: A model to interact with Retro Map service within a Mojo app.
 */
 
 var ServiceModel = function() {
-    this.urlBase = "http://www.webosarchive.com/maps/";
+    this.urlBase = "http://maps.webosarchive.com/";
     //this.urlBase = "http://192.168.1.232/retro-maps/";
     this.supportedMapTypes = ["Road", "Aerial", "AerialWithLabels"]
 };
@@ -53,7 +53,7 @@ ServiceModel.prototype.DoIPLocationFix = function(callback) {
 }
 
 //HTTP request to search maps
-ServiceModel.prototype.DoMapDataRequest = function(search, mapType, mapSize, zoomLevel, callback) {
+ServiceModel.prototype.DoMapDataRequest = function(search, mapType, mapSize, pushPin, zoomLevel, callback) {
     this.retVal = "";
     Mojo.Log.info("Searching with search: " + search);
     if (callback)
@@ -68,6 +68,8 @@ ServiceModel.prototype.DoMapDataRequest = function(search, mapType, mapSize, zoo
         theQuery += "&mapSize=" + mapSize;
     else
         Mojo.Log.warn("Invalid map size requested, " + mapSize + ". Use format like: 800,600");
+    //TODO: Make pushPin configurable
+    //theQuery += "&pushPin=false";
     if (zoomLevel && zoomLevel != "" && zoomLevel >= 1 && zoomLevel <=20)
         theQuery += "&zoomLevel=" + zoomLevel;
     else
@@ -86,6 +88,7 @@ ServiceModel.prototype.DoMapDataRequest = function(search, mapType, mapSize, zoo
     }.bind(this);
 }
 
+/*
 //higher the zoom, the smaller the number
 //north south
 //ranges -90 through +90
@@ -130,6 +133,7 @@ ServiceModel.prototype.calculateNewLongitude = function(pan, currLongitude, zoom
     }
     return newLogitude;
 }
+*/
 
 ServiceModel.prototype.base64UrlEncode = function(url) {
     // First of all you should encode to Base64 string

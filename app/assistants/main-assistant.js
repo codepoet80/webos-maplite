@@ -1,6 +1,6 @@
 /*
-    Podcast Directory app for webOS.
-    This app depends on a Retro Podcast service, which is by webOS Archive at no cost for what remains of the webOS mobile community.
+    Retro Maps app for webOS.
+    This app depends on a Retro Maps Service, which is hosted by webOS Archive at no cost for what remains of the webOS mobile community.
 */
 
 function MainAssistant() {
@@ -30,7 +30,7 @@ MainAssistant.prototype.setup = function() {
         this.attributes = {
             hintText: 'Enter and address or coordinates...',
             multiline: false,
-            autoFocus: true,
+            autoFocus: false,
             focusMode: Mojo.Widget.focusSelectMode
         },
         this.model = {
@@ -45,16 +45,34 @@ MainAssistant.prototype.setup = function() {
         disabled: false
     };
     this.controller.setupWidget("btnGet", this.submitBtnAttrs, this.submitBtnModel);
-    //Loading spinner - with global members for easy toggling later
-    /*
-    this.spinnerAttrs = {
-        spinnerSize: Mojo.Widget.spinnerLarge
-    };
-    this.spinnerModel = {
-        spinning: false
-    }
-    this.controller.setupWidget('workingSpinner', this.spinnerAttrs, this.spinnerModel);
-    */
+    //Jump Locations
+    this.controller.setupWidget("listJumpLocations",
+        this.attributes = {
+            label: $L("Jump To"),
+            choices: [
+                { label: "Current Location", value: "Current" },
+                { label: "North America", value: "NAmerica" },
+                { label: "South America", value: "SAmerica" },
+                { label: "Europe", value: "Europe" },
+                { label: "Africa", value: "Africa" },
+                { label: "Asia", value: "Asia" },
+                { label: "Australia", value: "Australia" }
+            ]
+        },
+        this.model = {
+            value: "Current",
+            disabled: false
+        }
+    );
+    //Spinner
+	this.controller.setupWidget("spinnerLoad",
+        this.attributes = {
+            spinnerSize: "small"
+        },
+        this.model = {
+            spinning: true
+        }
+    ); 
     //Map Scroller
     this.controller.setupWidget("divShowResultImage",
         this.attributes = {
@@ -68,6 +86,11 @@ MainAssistant.prototype.setup = function() {
         label: "Settings",
         items: [
             Mojo.Menu.editItem,
+            { label: "Map Type", items: [
+                { label: "Road", command: 'do-mapTypeRoad', type: "Road" },
+                { label: "Aerial", command: 'do-mapTypeAerial', type: "Aerial" },
+                { label: "Hybrid", command: 'do-mapTypeHybrid', type: "AerialWithLabels" },
+            ]},
             { label: "Preferences", command: 'do-Preferences' },
             { label: "About", command: 'do-myAbout' }
         ]
@@ -81,12 +104,17 @@ MainAssistant.prototype.setup = function() {
         visible: true,
         items: [{
                 items: [
-                    { label: 'Z-', command: 'do-zoomOut' },
-                    { label: 'Z+', command: 'do-zoomIn' },
+                    { label: 'Z-', iconPath: 'images/zoomout.png', command: 'do-zoomOut' },
+                    { label: 'Z+', iconPath: 'images/zoomin.png', command: 'do-zoomIn' },
                 ]
             },
             {
                 items: []
+            },
+            {
+                items: [
+                    { label: 'Locate', iconPath: 'images/locate.png', command: 'do-getFix' },
+                ]
             }
         ]
     };
@@ -94,12 +122,17 @@ MainAssistant.prototype.setup = function() {
 
     /* Always on Event handlers */
     Mojo.Event.listen(this.controller.get("btnGet"), Mojo.Event.tap, this.handleSearchClick.bind(this));
+    Mojo.Event.listen(this.controller.get("listJumpLocations"), Mojo.Event.propertyChange, this.handleJumpChange.bind(this));
     // Non-Mojo widgets
     Mojo.Event.listen(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap.bind(this));
     $("btnClear").addEventListener("click", this.handleClearTap.bind(this));
     $("imgMap").addEventListener("click", this.handleMapTap.bind(this));
     this.keyupHandler = this.handleKeyUp.bindAsEventListener(this);
     this.controller.document.addEventListener("keyup", this.keyupHandler, true);
+    $("imgWest").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgEast").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgNorth").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgSouth").addEventListener("click", this.handleDirTap.bind(this));
 
     //Check for updates
     if (!appModel.UpdateCheckDone) {
@@ -130,6 +163,8 @@ MainAssistant.prototype.activate = function(event) {
         Mojo.Additions.ShowDialogBox("Welcome to Retro Maps!", "This is a client for a Retro Maps web service, which is powered by Bing Maps and IPInfo.io. You can use the community server for free, until its API limits are hit, or you can enhance your privacy and ease the load by hosting the service yourself.");
     }
 
+    this.selectRoadTypeMenu();
+
     this.orientation = this.determineOrientation();
     //find out what kind of device this is
     if (Mojo.Environment.DeviceInfo.platformVersionMajor >= 3) {
@@ -157,6 +192,7 @@ MainAssistant.prototype.activate = function(event) {
             $("txtSearch").mojo.setValue(appModel.LastSearchString);
             this.handleSearchClick();
         } else {
+            this.hideControlsForResize();
             this.getLocationFix();
         }
     }
@@ -171,11 +207,33 @@ MainAssistant.prototype.activate = function(event) {
 MainAssistant.prototype.handleCommand = function(event) {
     if (event.type == Mojo.Event.command) {
         switch (event.command) {
+            case 'do-mapTypeRoad':
+                appModel.AppSettingsCurrent["DefaultView"] = "Road";
+                appModel.SaveSettings();
+                this.handleSearchClick();
+                this.selectRoadTypeMenu();
+                break;
+            case 'do-mapTypeAerial':
+                appModel.AppSettingsCurrent["DefaultView"] = "Aerial";
+                appModel.SaveSettings();
+                this.selectRoadTypeMenu();
+                this.handleSearchClick();
+                break;
+            case 'do-mapTypeHybrid':
+                appModel.AppSettingsCurrent["DefaultView"] = "AerialWithLabels";
+                appModel.SaveSettings();
+                this.selectRoadTypeMenu();
+                this.handleSearchClick();
+                break;
             case 'do-zoomOut':
                 this.changeZoom(false)
                 break;
             case 'do-zoomIn':
                 this.changeZoom(true)
+                break;
+            case 'do-getFix':
+                this.zoomLevel = 11;
+                this.getLocationFix();
                 break;
             case 'do-Preferences':
                 var stageController = Mojo.Controller.stageController;
@@ -193,7 +251,7 @@ MainAssistant.prototype.handleKeyUp = function(event) {
 
     if (event && Mojo.Char.isEnterKey(event.keyCode)) {
         if (event.srcElement.parentElement.id == "txtSearch") {
-            this.handleClick(event);
+            this.handleSearchClick(event);
         }
     }
 };
@@ -202,7 +260,6 @@ MainAssistant.prototype.handleKeyUp = function(event) {
 MainAssistant.prototype.handleSearchClick = function(event) {
 
     this.disableUI();
-
     //figure out what was requested
     var stageController = Mojo.Controller.getAppController().getActiveStageController();
     if (stageController) {
@@ -218,10 +275,56 @@ MainAssistant.prototype.handleSearchClick = function(event) {
     }
 }
 
+MainAssistant.prototype.handleJumpChange = function(event) {
+    Mojo.Log.info("User wants to jump to: " + event.value);
+    var newSearchResult = null;
+    switch (event.value) {
+        case 'NAmerica':
+            newSearchResult = "48.368748,-99.996078";
+            this.zoomLevel = 5;
+            changed = true;
+            break;
+        case 'SAmerica':
+            newSearchResult = "-15.5961100,-56.0966700";
+            this.zoomLevel = 5;
+            changed = true;
+            break;
+        case 'Europe':
+            newSearchResult = "55.4879,28.7856";
+            this.zoomLevel = 5;
+            changed = true;
+            break;
+        case 'Africa':
+            newSearchResult = "2.3780,16.0630";
+            this.zoomLevel = 4;
+            changed = true;
+            break;
+        case 'Asia':
+            newSearchResult = "44.402393,86.154785";
+            this.zoomLevel = 4;
+            changed = true;
+            break;
+        case 'Australia':
+            newSearchResult = "-24.25,133.416667";
+            this.zoomLevel = 6;
+            changed = true;
+            break;
+    }
+    if (newSearchResult != null) {
+        $("txtSearch").mojo.setValue(newSearchResult);
+        this.handleSearchClick();
+    }
+}
+
 //Handle tap of title bar
-MainAssistant.prototype.handleTitleTap = function() {
-    $("drawerControls").mojo.toggleState();
-    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 500);
+MainAssistant.prototype.handleTitleTap = function(toggleState) {
+    if (typeof toggleState === 'undefined') {
+        $("drawerControls").mojo.setOpenState(toggleState);
+    } else {
+        $("drawerControls").mojo.toggleState();
+    }
+    this.hideControlsForResize();
+    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 900);
 }
 
 //Handle clear button tap
@@ -242,6 +345,16 @@ MainAssistant.prototype.handleClearTap = function() {
     $("txtSearch").mojo.focus();
 }
 
+//Handle direction arrow tap
+MainAssistant.prototype.handleDirTap = function(event) {
+    Mojo.Log.info("You tapped: " + event.srcElement.id);
+    if (event.srcElement.id.indexOf("img") != -1) {
+        var direction = event.srcElement.id.replace("img", "");
+        Mojo.Log.info("I should pan " + direction.toLowerCase());
+        this.panMap(direction.toLowerCase());
+    }
+}
+
 //Handle map taps
 MainAssistant.prototype.handleMapTap = function(event) {
     //Mojo.Additions.EnumerateObject(event);
@@ -260,24 +373,25 @@ MainAssistant.prototype.handleMapTap = function(event) {
         if (event.y > yCheck)
             yPos++;
     }
-    /*
+
     Mojo.Log.info("You tapped X: " + event.x + ", Y: " + event.y);
     Mojo.Log.info("I calculated your tap segment as xpos " + xPos + ", ypos " + yPos);
-    if (xPos > 0) { Mojo.Log.info("I should move east on the longitude"); }
-    if (xPos < 0) { Mojo.Log.info("I should move west on the longitude"); }
-    if (yPos > 0) { Mojo.Log.info("I should move south on the latitude"); }
-    if (yPos < 0) { Mojo.Log.info("I should move north on the latitude"); }
-    */
-    var newLong = serviceModel.calculateNewLongitude(xPos, this.mapData.longitude, this.mapData.zoomLevel);
-    var newLat = serviceModel.calculateNewLatitude(yPos, this.mapData.latitude, this.mapData.zoomLevel);
-    Mojo.Log.warn("** New lat,long: " + newLat + "," + newLong);
-    $("txtSearch").mojo.setValue(newLat + "," + newLong);
-    this.handleSearchClick();
+    if (xPos > 0 && yPos == 0) { Mojo.Log.info("I should move east on the longitude"); this.panMap("east"); }
+    if (xPos < 0 && yPos == 0) { Mojo.Log.info("I should move west on the longitude"); this.panMap("west"); }
+    if (yPos > 0 && xPos == 0) { Mojo.Log.info("I should move south on the latitude"); this.panMap("south"); }
+    if (yPos < 0 && xPos == 0) { Mojo.Log.info("I should move north on the latitude"); this.panMap("north"); }
+
+    //var newLong = serviceModel.calculateNewLongitude(xPos, this.mapData.longitude, this.mapData.zoomLevel);
+    //var newLat = serviceModel.calculateNewLatitude(yPos, this.mapData.latitude, this.mapData.zoomLevel);
+    //Mojo.Log.warn("** New lat,long: " + newLat + "," + newLong);
+    //$("txtSearch").mojo.setValue(newLat + "," + newLong);
+    //this.handleSearchClick();
 }
 
 /* Map Stuff */
 
 //Try to find the location
+//TODO: Should also try GPS Fix
 MainAssistant.prototype.getLocationFix = function() {
     Mojo.Log.info("Attempting to get location fix...");
     serviceModel.DoIPLocationFix(function(response) {
@@ -312,7 +426,7 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
     var mapSize = Mojo.Environment.DeviceInfo.screenWidth + "," + Mojo.Environment.DeviceInfo.screenHeight;
     Mojo.Log.info("- Map size: " + mapSize);
 
-    serviceModel.DoMapDataRequest(searchRequest, appModel.AppSettingsCurrent["DefaultView"], mapSize, this.zoomLevel, function(response) {
+    serviceModel.DoMapDataRequest(searchRequest, appModel.AppSettingsCurrent["DefaultView"], mapSize, false, this.zoomLevel, function(response) {
         Mojo.Log.info("ready to process search results: " + response);
         if (response != null && response != "") {
             var responseObj = JSON.parse(response);
@@ -327,6 +441,7 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
                 } else {
                     Mojo.Log.warn("Search results were empty. Either there was no matching result, or there were server or connectivity problems.");
                     Mojo.Additions.ShowDialogBox("No results", "The server did not report any matches for the search.");
+                    this.updateMapImage();
                 }
             }
         } else {
@@ -339,12 +454,13 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
 
 //Update the UI with search results from Search Request
 MainAssistant.prototype.updateMapImage = function(mapData) {
-    if (mapData.img) {
+    if (mapData && mapData.img) {
         this.mapData = mapData;
         Mojo.Log.info("Updating map image with: " + mapData.img);
         $("imgMap").src = mapData.img;
-        $("drawerControls").mojo.setOpenState(false);
     }
+    $("drawerControls").mojo.setOpenState(false);
+    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 500);
 }
 
 MainAssistant.prototype.changeZoom = function(up) {
@@ -358,6 +474,52 @@ MainAssistant.prototype.changeZoom = function(up) {
     this.handleSearchClick();
 }
 
+MainAssistant.prototype.panMap = function(panDir) {
+    //This won't work everywhere in the world.
+    currentLong = this.mapData.longitude;
+    currentLat = this.mapData.latitude;
+    //if (this.currentLat != 0) // && this.mapscale < 20)
+    {
+        switch (panDir) {
+            case "west":
+                {
+                    currentLong = this.mapData.longitude * 1 - (100 / Math.pow(2, this.zoomLevel));
+                    if (currentLong < -180)
+                        currentLong = currentLong * 1 + 180;
+                }
+                break;
+            case "east":
+                {
+                    currentLong = this.mapData.longitude * 1 + (100 / Math.pow(2, this.zoomLevel));
+                    if (currentLong > 180)
+                        currentLong = currentLong * 1 - 180;
+                }
+                break;
+            case "north":
+                {
+                    currentLat = this.mapData.latitude * 1 + (100 / Math.pow(2, this.zoomLevel));
+                    if (currentLat > (90 - (100 / Math.pow(2, this.zoomLevel))))
+                        currentLat = 90 - (100 / Math.pow(2, this.zoomLevel));
+                    //if (this.currentLat > 90)
+                    //this.currentLat=90;
+                }
+                break;
+            case "south":
+                {
+                    currentLat = this.mapData.latitude * 1 - (100 / Math.pow(2, this.zoomLevel));
+                    if (currentLat < (-90 + (100 / Math.pow(2, this.zoomLevel))))
+                        currentLat = -90 + (100 / Math.pow(2, this.zoomLevel)); //-90;
+                }
+                break;
+        }
+        if (currentLat != this.mapData.latitude || currentLong != this.mapData.longitude) {
+            Mojo.Log.warn("** Panning Map to latitude: " + currentLat + "," + currentLong);
+            $("txtSearch").mojo.setValue(currentLat + "," + currentLong);
+            this.handleSearchClick();
+        }
+    }
+}
+
 /* Screen Stuff */
 MainAssistant.prototype.determineOrientation = function() {
     if (window.innerHeight > window.innerWidth)
@@ -366,8 +528,15 @@ MainAssistant.prototype.determineOrientation = function() {
         return "landsapce";
 }
 
+MainAssistant.prototype.hideControlsForResize = function() {
+    this.controller.get('imgNorth').style.visibility = "hidden";
+    this.controller.get('imgSouth').style.visibility = "hidden";
+    this.controller.get('imgWest').style.visibility = "hidden";
+    this.controller.get('imgEast').style.visibility = "hidden";
+}
+
 MainAssistant.prototype.calculateControlsPosition = function() {
-    Mojo.Log.info("Resizing viewer");
+    Mojo.Log.info("Resizing viewer for device: " + Mojo.Environment.DeviceInfo.modelName);
     var chromeHeight = document.getElementById("divTitle").offsetHeight;
     chromeHeight += document.getElementById("drawerControls").offsetHeight;
     Mojo.Log.info("chrome height: " + chromeHeight);
@@ -378,54 +547,56 @@ MainAssistant.prototype.calculateControlsPosition = function() {
     var screenWidth = window.innerWidth;
 
     if (screenWidth < screenHeight) {   //Up orientation
-        newWidth = "800px";
-        newHeight = (1024 - chromeHeight) + "px";
+        newWidth = "800";
+        newHeight = (1024 - chromeHeight);
     } else {    //Sideways
-        newWidth = "1024px";
-        newHeight = (800 - chromeHeight) + "px";
+        newWidth = "1024";
+        newHeight = (800 - chromeHeight);
     }
-    div.style.width = newWidth;
-    div.style.height = newHeight;
+    div.style.width = newWidth + "px";
+    div.style.height = newHeight + "px;"
     Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
+
+    this.controller.get('imgNorth').style.top = chromeHeight + "px";
+    this.controller.get('imgNorth').style.left = ((newWidth / 2) - 40) + "px";
+    this.controller.get('imgSouth').style.bottom = 110 + "px";
+    this.controller.get('imgSouth').style.left = ((newWidth / 2) - 40) + "px";
+    this.controller.get('imgWest').style.top = ((newHeight / 2) - 20) + "px";
+    this.controller.get('imgEast').style.top = ((newHeight / 2) - 20) + "px";
+
+    Mojo.Log.warn("moved buttons!");
+    this.controller.get('imgNorth').style.visibility = "visible";
+    this.controller.get('imgSouth').style.visibility = "visible";
+    this.controller.get('imgWest').style.visibility = "visible";
+    this.controller.get('imgEast').style.visibility = "visible";
+
     if (this.orientation != this.determineOrientation()){
         this.orientation = this.determineOrientation();
         Mojo.Log.info("Orientation changed, requesting new map");
         this.handleSearchClick();
     }
+    $("spinnerLoad").mojo.stop();
 }
 
 MainAssistant.prototype.disableUI = function(statusValue) {
-    //start spinner
-    //if (!this.spinnerModel.spinning) {
-    //    this.spinnerModel.spinning = true;
-    //    this.controller.modelChanged(this.spinnerModel);
-    //}
-    //if (statusValue && statusValue != "") {
-    //    $("divWorkingStatus").style.display = "block";
-    //    $("divStatusValue").innerHTML = statusValue;
-    //} else {
-    //    $("divWorkingStatus").style.display = "none";
-    //}
-
-    //disable submit button
-    if (!this.submitBtnModel.disabled) {
-        this.submitBtnModel.disabled = true;
-        this.controller.modelChanged(this.submitBtnModel);
-    }
+    $("spinnerLoad").mojo.start();
 }
 
 MainAssistant.prototype.enableUI = function() {
-    //stop spinner
-    //this.spinnerModel.spinning = false;
-    //this.controller.modelChanged(this.spinnerModel);
 
-    //hide status
-    //$("divWorkingStatus").style.display = "none";
-    //$("divStatusValue").innerHTML = "";
+}
 
-    //enable submit button
-    this.submitBtnModel.disabled = false;
-    this.controller.modelChanged(this.submitBtnModel);
+MainAssistant.prototype.selectRoadTypeMenu = function() {
+    Mojo.Log.info("Current menu item: " + JSON.stringify(this.appMenuModel.items[1]));
+    for (var i=0;i<this.appMenuModel.items[1].items.length;i++) {
+        Mojo.Log.info("Menu item found: " + this.appMenuModel.items[1].items[i].type + " ?= " + appModel.AppSettingsCurrent["DefaultView"]);
+        if (this.appMenuModel.items[1].items[i].type == appModel.AppSettingsCurrent["DefaultView"]) {
+            this.appMenuModel.items[1].items[i].chosen = true;
+        } else {
+            this.appMenuModel.items[1].items[i].chosen = false;
+        }
+    }
+    this.controller.modelChanged(this.appMenuModel);
 }
 
 /* End of Life Stuff */

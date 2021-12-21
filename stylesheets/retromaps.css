@@ -1,6 +1,6 @@
 /* TODO: put your application-specific CSS here */
 
-.palm-page-header .header-icon.podcastdirectory {
+.palm-page-header .header-icon.appicon {
     background: url(../icon.png) no-repeat;
     background-size: 32px 32px;
 }
@@ -70,7 +70,7 @@
     padding: 3px;
 }
 
-#divPodcastTitle {
+#divMapsTitle {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
