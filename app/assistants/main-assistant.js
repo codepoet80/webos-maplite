@@ -190,7 +190,6 @@ MainAssistant.prototype.activate = function(event) {
     }
 
     //Get ready for input!
-    //this.controller.window.onresize = this.calculateControlsPosition.bind(this);
     this.controller.window.onresize = this.handleOrientationChanged.bind(this);
 };
 
@@ -419,8 +418,7 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
                 Mojo.Log.error("Error message from server while searching for map data: " + responseObj.msg);
                 Mojo.Additions.ShowDialogBox("Server Error", "The server responded to the search request with: " + responseObj.msg.replace("ERROR: ", ""));
             } else {
-                if (responseObj.latitude && responseObj.latitude && responseObj.img) {
-                    //If we got a good looking response, remember it, and update the UI
+                if (responseObj.latitude && responseObj.latitude && responseObj.img) { //If we got a good looking response, remember it, and update the UI
                     Mojo.Log.info("Got map data!");
                     this.updateMapImage(responseObj);
                 } else {
@@ -455,14 +453,14 @@ MainAssistant.prototype.changeZoom = function(up) {
         if (this.zoomLevel < 20)
             this.zoomLevel++;
     } else { //decrease zoom
-        if (this.zoomLevel >0)
+        if (this.zoomLevel > 0)
             this.zoomLevel--;
     }
     this.handleSearchClick();
 }
 
 MainAssistant.prototype.panMap = function(panDir) {
-    //This won't work everywhere in the world.
+    //TODO: This doesn't work in Australia
     currentLong = this.mapData.longitude;
     currentLat = this.mapData.latitude;
     //if (this.currentLat != 0) // && this.mapscale < 20)

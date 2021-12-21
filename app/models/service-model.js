@@ -9,7 +9,7 @@ Maps Service Model - Mojo
 
 var ServiceModel = function() {
     this.urlBase = "http://maps.webosarchive.com/";
-    //this.urlBase = "http://192.168.1.232/retro-maps/";
+    //this.urlBase = "http://192.168.1.148/retro-maps/";
     this.supportedMapTypes = ["Road", "Aerial", "AerialWithLabels"]
 };
 
@@ -88,55 +88,7 @@ ServiceModel.prototype.DoMapDataRequest = function(search, mapType, mapSize, pus
     }.bind(this);
 }
 
-/*
-//higher the zoom, the smaller the number
-//north south
-//ranges -90 through +90
-latMoveAmounts = [45,45,45,45,45,20,10,5,2,0.9,0.5,0.2,0.1,0.07,0.05,0.03,0,0,0,0,0]
-ServiceModel.prototype.calculateNewLatitude = function(pan, currLatitude, zoomLevel) {
-    var moveAmount = latMoveAmounts[zoomLevel];
-    Mojo.Log.warn("using lat move amount " + moveAmount);
-    currLatitude = currLatitude * 1;
-    var newLatitude = currLatitude;
-    if (pan < 0) {
-        newLatitude = currLatitude + moveAmount;
-    } else if (pan > 0) {
-        newLatitude = currLatitude - moveAmount;
-    }
-    if (newLatitude < -90) {
-        newLatitude = 90 - (Math.abs(90 + newLatitude));
-    }
-    if (newLatitude > 90) {
-        newLatitude = -90 + (newLatitude - 90);
-    }
-    return newLatitude;
-}
-
-//east west
-//range -180 through +180
-longMoveAmounts = [90,90,90,90,90,20,10,5,2,0.9,0.5,0.2,0.1,0.07,0.05,0.03,0,0,0,0,0]
-ServiceModel.prototype.calculateNewLongitude = function(pan, currLongitude, zoomLevel) {
-    var moveAmount = longMoveAmounts[zoomLevel];
-    Mojo.Log.warn("using long move amount " + moveAmount);
-    currLongitude = currLongitude * 1;
-    var newLogitude = currLongitude;
-    if (pan < 0) {
-        newLogitude = currLongitude - moveAmount;
-    } else if (pan > 0) {
-        newLogitude = currLongitude + moveAmount;
-    } 
-    if (newLogitude < -180) {
-        newLogitude = 180 - (Math.abs(180 + newLogitude));
-    }
-    if (newLogitude > 180) {
-        newLogitude = -180 + (newLogitude - 180);
-    }
-    return newLogitude;
-}
-*/
-
 ServiceModel.prototype.base64UrlEncode = function(url) {
-    // First of all you should encode to Base64 string
     url = btoa(url);
     // Convert Base64 to Base64URL by replacing “+” with “-” and “/” with “_”
     url = url.replace(/\+/g, '-');
