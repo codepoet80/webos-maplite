@@ -1,5 +1,5 @@
 /*
-    Retro Maps app for webOS.
+    Map lite app for webOS.
     This app depends on a Retro Maps Service, which is hosted by webOS Archive at no cost for what remains of the webOS mobile community.
 */
 
@@ -131,7 +131,7 @@ MainAssistant.prototype.setup = function() {
     //Check for updates
     if (!appModel.UpdateCheckDone) {
         appModel.UpdateCheckDone = true;
-        updaterModel.CheckForUpdate("Retro Maps", this.handleUpdateResponse.bind(this));
+        updaterModel.CheckForUpdate("Map lite", this.handleUpdateResponse.bind(this));
     }
 };
 
@@ -154,7 +154,7 @@ MainAssistant.prototype.activate = function(event) {
     if (appModel.AppSettingsCurrent["FirstRun"]) {
         appModel.AppSettingsCurrent["FirstRun"] = false;
         appModel.SaveSettings();
-        Mojo.Additions.ShowDialogBox("Welcome to Retro Maps!", "This is a client for a Retro Maps web service, which is powered by Bing Maps and IPInfo.io. You can use the community server for free, until its API limits are hit, or you can enhance your privacy and ease the load by hosting the service yourself.");
+        Mojo.Additions.ShowDialogBox("Welcome to Map Lite!", "This is a lightweight client for a Retro Maps web service, which is powered by Bing Maps and IPInfo.io. You can use the community server for free, until its API limits are hit, or you can enhance your privacy and ease the load by hosting the service yourself.");
     }
 
     this.selectRoadTypeMenu();
@@ -232,7 +232,7 @@ MainAssistant.prototype.handleCommand = function(event) {
                 stageController.pushScene({ name: "preferences", disableSceneScroller: false });
                 break;
             case 'do-myAbout':
-                Mojo.Additions.ShowDialogBox("Retro Maps - " + Mojo.Controller.appInfo.version, "Retro Maps client for webOS. Copyright 2021, Jon Wise. Distributed under an MIT License, and powered by Bing Maps and IPInfo.io.<br>Source code available at: https://github.com/codepoet80/webos-retromaps");
+                Mojo.Additions.ShowDialogBox("Map Lite - " + Mojo.Controller.appInfo.version, "Map Lite client for webOS. Copyright 2021, Jon Wise. Distributed under an MIT License, and powered by Bing Maps and IPInfo.io.<br>Source code available at: https://github.com/codepoet80/webos-maplite");
                 break;
         }
     }

@@ -9,7 +9,6 @@ Maps Service Model - Mojo
 
 var ServiceModel = function() {
     this.urlBase = "http://maps.webosarchive.com/";
-    //this.urlBase = "http://192.168.1.148/retro-maps/";
     this.supportedMapTypes = ["Road", "Aerial", "AerialWithLabels"]
 };
 

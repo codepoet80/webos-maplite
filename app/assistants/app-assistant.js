@@ -17,7 +17,7 @@ AppAssistant.prototype.handleLaunch = function(params) {
 
     //get the proxy for the stage in the event it already exists (eg: app is currently open)
     var mainStage = this.controller.getStageProxy("");
-    Mojo.Log.info("Retro Maps is Launching! Launch params: " + JSON.stringify(params));
+    Mojo.Log.info("Map Lite is Launching! Launch params: " + JSON.stringify(params));
 
     //if there was a search query, load with that
     if (params && params["query"] != undefined) {
