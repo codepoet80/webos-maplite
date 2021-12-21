@@ -32,6 +32,7 @@ MainAssistant.prototype.setup = function() {
             multiline: false,
             focus: false,
             autoFocus: false,
+            requiresEnterKey: true,
             focusMode: Mojo.Widget.focusSelectMode
         },
         this.model = {
@@ -184,7 +185,7 @@ MainAssistant.prototype.activate = function(event) {
             this.handleSearchClick();
         } else {
             this.hideControlsForResize();
-            this.getLocationFix();
+            this.getLocationFix(true);
         }
     }
 
@@ -257,13 +258,12 @@ MainAssistant.prototype.handleSearchClick = function(event) {
     if (stageController) {
         this.controller = stageController.activeScene();
         var searchRequest = $("txtSearch").mojo.getValue();
-        Mojo.Log.warn("Processing search request: " + searchRequest);
+        Mojo.Log.info("Processing search request: " + searchRequest);
         if (searchRequest && searchRequest != "") {
             appModel.LastSearchString = searchRequest;
             this.searchMapData(searchRequest);
         } else {
             this.enableUI();
-            //setTimeout("$('txtSearch').mojo.focus();", 100);
         }
     }
 }
@@ -340,18 +340,16 @@ MainAssistant.prototype.handleClearTap = function() {
 
 //Handle direction arrow tap
 MainAssistant.prototype.handleDirTap = function(event) {
-    Mojo.Log.info("You tapped: " + event.srcElement.id);
     if (event.srcElement.id.indexOf("img") != -1) {
         var direction = event.srcElement.id.replace("img", "");
-        Mojo.Log.info("I should pan " + direction.toLowerCase());
+        Mojo.Log.info("You tapped: " + event.srcElement.id + " so I should pan " + direction.toLowerCase());
         this.panMap(direction.toLowerCase());
     }
 }
 
 //Handle map taps
 MainAssistant.prototype.handleMapTap = function(event) {
-    //Mojo.Additions.EnumerateObject(event);
-    Mojo.Log.info("** Current lat,long: " + this.mapData.centerpoint);
+
     var xSegments = Math.round($("imgMap").width / 3);
     var xPos = -2;
     for (var xCheck=0; xCheck < $("imgMap").width; xCheck=xCheck+xSegments)
@@ -367,8 +365,7 @@ MainAssistant.prototype.handleMapTap = function(event) {
             yPos++;
     }
 
-    Mojo.Log.info("You tapped X: " + event.x + ", Y: " + event.y);
-    Mojo.Log.info("I calculated your tap segment as xpos " + xPos + ", ypos " + yPos);
+    Mojo.Log.info("You tapped X: " + event.x + ", Y: " + event.y + " so I calculated your tap segment as xpos " + xPos + ", ypos " + yPos);
     if (xPos > 0 && yPos == 0) { Mojo.Log.info("I should move east on the longitude"); this.panMap("east"); }
     if (xPos < 0 && yPos == 0) { Mojo.Log.info("I should move west on the longitude"); this.panMap("west"); }
     if (yPos > 0 && xPos == 0) { Mojo.Log.info("I should move south on the latitude"); this.panMap("south"); }
@@ -379,7 +376,7 @@ MainAssistant.prototype.handleMapTap = function(event) {
 
 //Try to find the location
 //TODO: Should also try GPS Fix
-MainAssistant.prototype.getLocationFix = function() {
+MainAssistant.prototype.getLocationFix = function(hideDrawer) {
     Mojo.Log.info("Attempting to get location fix...");
     serviceModel.DoIPLocationFix(function(response) {
         if (response != null && response != "") {
@@ -389,13 +386,14 @@ MainAssistant.prototype.getLocationFix = function() {
                 Mojo.Log.error("Error message from server while trying IP GeoFix.");
                 Mojo.Additions.ShowDialogBox("Server Error", "The server responded to the geolocation request with: " + responseObj.msg.replace("ERROR: ", ""));
             } else {
-                if (responseObj.location && responseObj.location != "") {
-                    //If we got a good looking response, remember it, and update the UI
-                    
+                if (responseObj.location && responseObj.location != "") {  //If we got a good looking response, remember it, and update the UI
                     appModel.LastSearchResult = responseObj.location;
                     Mojo.Additions.DisableWidget("txtSearch", false);
                     $("txtSearch").mojo.setValue(responseObj.location);
-                    this.handleSearchClick();
+                    this.handleSearchClick(hideDrawer);
+                    if (hideDrawer) {
+                        $("drawerControls").mojo.setOpenState(false);
+                    }
                 } else {
                     Mojo.Log.warn("IP GeoFix response was empty. Either there was no matching results, or there were server or connectivity problems.");
                     Mojo.Additions.ShowDialogBox("Geolocation Error", "The server could not locate this client.");
@@ -410,7 +408,6 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
     Mojo.Log.info("Search requested: " + searchRequest);
     this.SearchValue = searchRequest;
     Mojo.Log.info("- Map type: " + appModel.AppSettingsCurrent["DefaultView"]);
-    //var mapSize = Mojo.Environment.DeviceInfo.screenWidth + "," + Mojo.Environment.DeviceInfo.screenHeight;
     var mapSize = window.innerWidth + "," + window.innerHeight;
     Mojo.Log.info("- Map size: " + mapSize);
 
@@ -449,7 +446,6 @@ MainAssistant.prototype.updateMapImage = function(mapData) {
     }
     if ($("drawerControls").mojo.getOpenState()) {
         this.hideControlsForResize();
-        $("drawerControls").mojo.setOpenState(false);
     }
     this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 900);
 }
@@ -514,6 +510,7 @@ MainAssistant.prototype.panMap = function(panDir) {
 /* Screen Stuff */
 MainAssistant.prototype.handleOrientationChanged = function(event) {
     this.handleSearchClick();
+    this.hideControlsForResize();
     this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 900);
 }
 
@@ -532,54 +529,20 @@ MainAssistant.prototype.calculateControlsPosition = function() {
     Mojo.Log.info("chrome height: " + chromeHeight);
     var div = document.getElementById("divShowResultImage");
 
-    var newWidth, newHeight;
-    var screenHeight = window.innerHeight;
-    var screenWidth = window.innerWidth;
-    var useBottom = - 35;
+    var newHeight = window.innerHeight;
+    var newWidth = window.innerWidth;
+    var useBottom = newHeight - 35;
 
-    if (this.DeviceType == "TouchPad") {
-        if (screenWidth < screenHeight) {   //Up orientation
-            newWidth = Mojo.Environment.DeviceInfo.screenHeight;
-            newHeight = Mojo.Environment.DeviceInfo.screenWidth - chromeHeight //(800 - chromeHeight);
-            useBottom += screenHeight;
-        } else {    //Sideways
-            Mojo.Log.warn("sideways");
-            newWidth = Mojo.Environment.DeviceInfo.screenWidth;
-            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);            
-            useBottom += Mojo.Environment.DeviceInfo.maximumCardHeight;
-        }
-    } else if (this.DeviceType == "Pre3") {
-        if (screenWidth < screenHeight) {   //Up orientation
-            newWidth = Mojo.Environment.DeviceInfo.maximumCardWidth;
-            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);
-        } else {    //Sideways
-            newWidth = Mojo.Environment.DeviceInfo.maximumCardHeight;
-            newHeight = Mojo.Environment.DeviceInfo.maximumCardWidth - chromeHeight //(800 - chromeHeight);
-        }
-    } else {
-        if (screenWidth < screenHeight) {   //Up orientation
-            newWidth = Mojo.Environment.DeviceInfo.screenWidth;
-            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);
-            useBottom += Mojo.Environment.DeviceInfo.maximumCardHeight;
-        } else {    //Sideways
-            newWidth = Mojo.Environment.DeviceInfo.screenHeight;
-            newHeight = Mojo.Environment.DeviceInfo.screenWidth - chromeHeight //(800 - chromeHeight);
-            useBottom += Mojo.Environment.DeviceInfo.screenWidth;
-        }
-    }
-    
     div.style.width = newWidth + "px";
     div.style.height = newHeight + "px;"
     Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
-    Mojo.Log.info("Map top: " + document.getElementById("imgMap").offsetTop);
 
     this.controller.get('imgNorth').style.top = chromeHeight + "px";
     this.controller.get('imgNorth').style.left = ((newWidth / 2) - 40) + "px";
     this.controller.get('imgSouth').style.left = this.controller.get('imgNorth').style.left;
     this.controller.get('imgSouth').style.top = useBottom + "px";
-    this.controller.get('imgWest').style.top = ((newHeight / 2) + (chromeHeight - 40)) + "px";
+    this.controller.get('imgWest').style.top = ((newHeight / 2) + (chromeHeight - 80)) + "px";
     this.controller.get('imgEast').style.top = this.controller.get('imgWest').style.top;
-    Mojo.Log.warn("East West button tops: " + this.controller.get('imgWest').style.top);
 
     this.controller.get('imgNorth').style.visibility = "visible";
     this.controller.get('imgSouth').style.visibility = "visible";
