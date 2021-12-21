@@ -28,23 +28,17 @@ MainAssistant.prototype.setup = function() {
     //Search bar
     this.controller.setupWidget('txtSearch',
         this.attributes = {
-            hintText: 'Enter and address or coordinates...',
+            hintText: 'Enter an address or coordinates...',
             multiline: false,
+            focus: false,
             autoFocus: false,
             focusMode: Mojo.Widget.focusSelectMode
         },
         this.model = {
             value: '',
-            disabled: false
+            disabled: true
         }
     );
-    //Search button - with global members for easy toggling later
-    this.submitBtnAttrs = {};
-    this.submitBtnModel = {
-        label: "Search",
-        disabled: false
-    };
-    this.controller.setupWidget("btnGet", this.submitBtnAttrs, this.submitBtnModel);
     //Jump Locations
     this.controller.setupWidget("listJumpLocations",
         this.attributes = {
@@ -121,7 +115,6 @@ MainAssistant.prototype.setup = function() {
     this.controller.setupWidget(Mojo.Menu.commandMenu, this.cmdMenuAttributes, this.cmdMenuModel);
 
     /* Always on Event handlers */
-    Mojo.Event.listen(this.controller.get("btnGet"), Mojo.Event.tap, this.handleSearchClick.bind(this));
     Mojo.Event.listen(this.controller.get("listJumpLocations"), Mojo.Event.propertyChange, this.handleJumpChange.bind(this));
     // Non-Mojo widgets
     Mojo.Event.listen(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap.bind(this));
@@ -165,23 +158,21 @@ MainAssistant.prototype.activate = function(event) {
 
     this.selectRoadTypeMenu();
 
+    //figure out our environment
     this.orientation = this.determineOrientation();
-    //find out what kind of device this is
     if (Mojo.Environment.DeviceInfo.platformVersionMajor >= 3) {
         this.DeviceType = "TouchPad";
-        Mojo.Log.info("Device detected as TouchPad");
     } else {
         if (window.screen.width == 800 || window.screen.height == 800) {
             this.DeviceType = "Pre3";
-            Mojo.Log.info("Device detected as Pre3");
         } else if ((window.screen.width == 480 || window.screen.height == 480) && (window.screen.width == 320 || window.screen.height == 320)) {
             this.DeviceType = "Pre";
-            Mojo.Log.warn("Device detected as Pre or Pre2");
         } else {
             this.DeviceType = "Tiny";
-            Mojo.Log.warn("Device detected as Pixi or Veer");
         }
     }
+    Mojo.Log.warn("Starting up in orientation: " + this.orientation + " on device: " + this.DeviceType);
+
     //handle launch with search query
     if (appModel.LaunchQuery != "") {
         Mojo.Log.info("using launch query: " + appModel.LaunchQuery);
@@ -196,9 +187,10 @@ MainAssistant.prototype.activate = function(event) {
             this.getLocationFix();
         }
     }
-    //Get ready for input!
-    this.controller.window.onresize = this.calculateControlsPosition.bind(this);
 
+    //Get ready for input!
+    //this.controller.window.onresize = this.calculateControlsPosition.bind(this);
+    this.controller.window.onresize = this.handleOrientationChanged.bind(this);
 };
 
 /* UI Events */
@@ -265,12 +257,13 @@ MainAssistant.prototype.handleSearchClick = function(event) {
     if (stageController) {
         this.controller = stageController.activeScene();
         var searchRequest = $("txtSearch").mojo.getValue();
+        Mojo.Log.warn("Processing search request: " + searchRequest);
         if (searchRequest && searchRequest != "") {
             appModel.LastSearchString = searchRequest;
             this.searchMapData(searchRequest);
         } else {
             this.enableUI();
-            setTimeout("$('txtSearch').mojo.focus();", 100);
+            //setTimeout("$('txtSearch').mojo.focus();", 100);
         }
     }
 }
@@ -358,7 +351,7 @@ MainAssistant.prototype.handleDirTap = function(event) {
 //Handle map taps
 MainAssistant.prototype.handleMapTap = function(event) {
     //Mojo.Additions.EnumerateObject(event);
-    Mojo.Log.warn("** Current lat,long: " + this.mapData.centerpoint);
+    Mojo.Log.info("** Current lat,long: " + this.mapData.centerpoint);
     var xSegments = Math.round($("imgMap").width / 3);
     var xPos = -2;
     for (var xCheck=0; xCheck < $("imgMap").width; xCheck=xCheck+xSegments)
@@ -380,12 +373,6 @@ MainAssistant.prototype.handleMapTap = function(event) {
     if (xPos < 0 && yPos == 0) { Mojo.Log.info("I should move west on the longitude"); this.panMap("west"); }
     if (yPos > 0 && xPos == 0) { Mojo.Log.info("I should move south on the latitude"); this.panMap("south"); }
     if (yPos < 0 && xPos == 0) { Mojo.Log.info("I should move north on the latitude"); this.panMap("north"); }
-
-    //var newLong = serviceModel.calculateNewLongitude(xPos, this.mapData.longitude, this.mapData.zoomLevel);
-    //var newLat = serviceModel.calculateNewLatitude(yPos, this.mapData.latitude, this.mapData.zoomLevel);
-    //Mojo.Log.warn("** New lat,long: " + newLat + "," + newLong);
-    //$("txtSearch").mojo.setValue(newLat + "," + newLong);
-    //this.handleSearchClick();
 }
 
 /* Map Stuff */
@@ -406,6 +393,7 @@ MainAssistant.prototype.getLocationFix = function() {
                     //If we got a good looking response, remember it, and update the UI
                     
                     appModel.LastSearchResult = responseObj.location;
+                    Mojo.Additions.DisableWidget("txtSearch", false);
                     $("txtSearch").mojo.setValue(responseObj.location);
                     this.handleSearchClick();
                 } else {
@@ -422,8 +410,8 @@ MainAssistant.prototype.searchMapData = function(searchRequest) {
     Mojo.Log.info("Search requested: " + searchRequest);
     this.SearchValue = searchRequest;
     Mojo.Log.info("- Map type: " + appModel.AppSettingsCurrent["DefaultView"]);
-    //var mapSize = window.innerWidth + "," + window.innerHeight;
-    var mapSize = Mojo.Environment.DeviceInfo.screenWidth + "," + Mojo.Environment.DeviceInfo.screenHeight;
+    //var mapSize = Mojo.Environment.DeviceInfo.screenWidth + "," + Mojo.Environment.DeviceInfo.screenHeight;
+    var mapSize = window.innerWidth + "," + window.innerHeight;
     Mojo.Log.info("- Map size: " + mapSize);
 
     serviceModel.DoMapDataRequest(searchRequest, appModel.AppSettingsCurrent["DefaultView"], mapSize, false, this.zoomLevel, function(response) {
@@ -459,8 +447,11 @@ MainAssistant.prototype.updateMapImage = function(mapData) {
         Mojo.Log.info("Updating map image with: " + mapData.img);
         $("imgMap").src = mapData.img;
     }
-    $("drawerControls").mojo.setOpenState(false);
-    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 500);
+    if ($("drawerControls").mojo.getOpenState()) {
+        this.hideControlsForResize();
+        $("drawerControls").mojo.setOpenState(false);
+    }
+    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 900);
 }
 
 MainAssistant.prototype.changeZoom = function(up) {
@@ -513,7 +504,7 @@ MainAssistant.prototype.panMap = function(panDir) {
                 break;
         }
         if (currentLat != this.mapData.latitude || currentLong != this.mapData.longitude) {
-            Mojo.Log.warn("** Panning Map to latitude: " + currentLat + "," + currentLong);
+            Mojo.Log.info("** Panning Map to latitude: " + currentLat + ", longitude: " + currentLong);
             $("txtSearch").mojo.setValue(currentLat + "," + currentLong);
             this.handleSearchClick();
         }
@@ -521,22 +512,21 @@ MainAssistant.prototype.panMap = function(panDir) {
 }
 
 /* Screen Stuff */
+MainAssistant.prototype.handleOrientationChanged = function(event) {
+    this.handleSearchClick();
+    this.controller.window.setTimeout(this.calculateControlsPosition.bind(this), 900);
+}
+
 MainAssistant.prototype.determineOrientation = function() {
     if (window.innerHeight > window.innerWidth)
         return "portrait";
     else
-        return "landsapce";
-}
-
-MainAssistant.prototype.hideControlsForResize = function() {
-    this.controller.get('imgNorth').style.visibility = "hidden";
-    this.controller.get('imgSouth').style.visibility = "hidden";
-    this.controller.get('imgWest').style.visibility = "hidden";
-    this.controller.get('imgEast').style.visibility = "hidden";
+        return "landscape";
 }
 
 MainAssistant.prototype.calculateControlsPosition = function() {
-    Mojo.Log.info("Resizing viewer for device: " + Mojo.Environment.DeviceInfo.modelName);
+    Mojo.Log.warn("Resizing viewer in orientation: " + this.orientation);
+
     var chromeHeight = document.getElementById("divTitle").offsetHeight;
     chromeHeight += document.getElementById("drawerControls").offsetHeight;
     Mojo.Log.info("chrome height: " + chromeHeight);
@@ -545,37 +535,65 @@ MainAssistant.prototype.calculateControlsPosition = function() {
     var newWidth, newHeight;
     var screenHeight = window.innerHeight;
     var screenWidth = window.innerWidth;
+    var useBottom = - 35;
 
-    if (screenWidth < screenHeight) {   //Up orientation
-        newWidth = "800";
-        newHeight = (1024 - chromeHeight);
-    } else {    //Sideways
-        newWidth = "1024";
-        newHeight = (800 - chromeHeight);
+    if (this.DeviceType == "TouchPad") {
+        if (screenWidth < screenHeight) {   //Up orientation
+            newWidth = Mojo.Environment.DeviceInfo.screenHeight;
+            newHeight = Mojo.Environment.DeviceInfo.screenWidth - chromeHeight //(800 - chromeHeight);
+            useBottom += screenHeight;
+        } else {    //Sideways
+            Mojo.Log.warn("sideways");
+            newWidth = Mojo.Environment.DeviceInfo.screenWidth;
+            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);            
+            useBottom += Mojo.Environment.DeviceInfo.maximumCardHeight;
+        }
+    } else if (this.DeviceType == "Pre3") {
+        if (screenWidth < screenHeight) {   //Up orientation
+            newWidth = Mojo.Environment.DeviceInfo.maximumCardWidth;
+            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);
+        } else {    //Sideways
+            newWidth = Mojo.Environment.DeviceInfo.maximumCardHeight;
+            newHeight = Mojo.Environment.DeviceInfo.maximumCardWidth - chromeHeight //(800 - chromeHeight);
+        }
+    } else {
+        if (screenWidth < screenHeight) {   //Up orientation
+            newWidth = Mojo.Environment.DeviceInfo.screenWidth;
+            newHeight = Mojo.Environment.DeviceInfo.maximumCardHeight - chromeHeight;   //(1024 - chromeHeight);
+            useBottom += Mojo.Environment.DeviceInfo.maximumCardHeight;
+        } else {    //Sideways
+            newWidth = Mojo.Environment.DeviceInfo.screenHeight;
+            newHeight = Mojo.Environment.DeviceInfo.screenWidth - chromeHeight //(800 - chromeHeight);
+            useBottom += Mojo.Environment.DeviceInfo.screenWidth;
+        }
     }
+    
     div.style.width = newWidth + "px";
     div.style.height = newHeight + "px;"
     Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
+    Mojo.Log.info("Map top: " + document.getElementById("imgMap").offsetTop);
 
     this.controller.get('imgNorth').style.top = chromeHeight + "px";
     this.controller.get('imgNorth').style.left = ((newWidth / 2) - 40) + "px";
-    this.controller.get('imgSouth').style.bottom = 110 + "px";
-    this.controller.get('imgSouth').style.left = ((newWidth / 2) - 40) + "px";
-    this.controller.get('imgWest').style.top = ((newHeight / 2) - 20) + "px";
-    this.controller.get('imgEast').style.top = ((newHeight / 2) - 20) + "px";
+    this.controller.get('imgSouth').style.left = this.controller.get('imgNorth').style.left;
+    this.controller.get('imgSouth').style.top = useBottom + "px";
+    this.controller.get('imgWest').style.top = ((newHeight / 2) + (chromeHeight - 40)) + "px";
+    this.controller.get('imgEast').style.top = this.controller.get('imgWest').style.top;
+    Mojo.Log.warn("East West button tops: " + this.controller.get('imgWest').style.top);
 
-    Mojo.Log.warn("moved buttons!");
     this.controller.get('imgNorth').style.visibility = "visible";
     this.controller.get('imgSouth').style.visibility = "visible";
     this.controller.get('imgWest').style.visibility = "visible";
     this.controller.get('imgEast').style.visibility = "visible";
 
-    if (this.orientation != this.determineOrientation()){
-        this.orientation = this.determineOrientation();
-        Mojo.Log.info("Orientation changed, requesting new map");
-        this.handleSearchClick();
-    }
     $("spinnerLoad").mojo.stop();
+}
+
+MainAssistant.prototype.hideControlsForResize = function() {
+    this.controller.get('imgNorth').style.visibility = "hidden";
+    this.controller.get('imgSouth').style.visibility = "hidden";
+    this.controller.get('imgWest').style.visibility = "hidden";
+    this.controller.get('imgEast').style.visibility = "hidden";
 }
 
 MainAssistant.prototype.disableUI = function(statusValue) {
@@ -603,7 +621,6 @@ MainAssistant.prototype.selectRoadTypeMenu = function() {
 MainAssistant.prototype.deactivate = function(event) {
     /* remove any event handlers you added in activate and do any other cleanup that should happen before
        this scene is popped or another scene is pushed on top */
-    Mojo.Event.stopListening(this.controller.get("btnGet"), Mojo.Event.tap, this.handleSearchClick);
     // Non-Mojo widgets
     Mojo.Event.stopListening(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap);
     $("imgSearchClear").removeEventListener("click", this.handleClearTap);
