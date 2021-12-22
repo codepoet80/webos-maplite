@@ -115,19 +115,6 @@ MainAssistant.prototype.setup = function() {
     };
     this.controller.setupWidget(Mojo.Menu.commandMenu, this.cmdMenuAttributes, this.cmdMenuModel);
 
-    /* Always on Event handlers */
-    Mojo.Event.listen(this.controller.get("listJumpLocations"), Mojo.Event.propertyChange, this.handleJumpChange.bind(this));
-    // Non-Mojo widgets
-    Mojo.Event.listen(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap.bind(this));
-    $("btnClear").addEventListener("click", this.handleClearTap.bind(this));
-    $("imgMap").addEventListener("click", this.handleMapTap.bind(this));
-    this.keyupHandler = this.handleKeyUp.bindAsEventListener(this);
-    this.controller.document.addEventListener("keyup", this.keyupHandler, true);
-    $("imgWest").addEventListener("click", this.handleDirTap.bind(this));
-    $("imgEast").addEventListener("click", this.handleDirTap.bind(this));
-    $("imgNorth").addEventListener("click", this.handleDirTap.bind(this));
-    $("imgSouth").addEventListener("click", this.handleDirTap.bind(this));
-
     //Check for updates
     if (!appModel.UpdateCheckDone) {
         appModel.UpdateCheckDone = true;
@@ -177,8 +164,9 @@ MainAssistant.prototype.activate = function(event) {
     //handle launch with search query
     if (appModel.LaunchQuery != "") {
         Mojo.Log.info("using launch query: " + appModel.LaunchQuery);
-        $("txtSearch").mojo.setValue(appModel.LaunchQuery);
+        $("txtSearch").mojo.setValue(decodeURIComponent(appModel.LaunchQuery));
         this.handleSearchClick();
+        $("drawerControls").mojo.setOpenState(false);
     } else {
         if (appModel.LastSearchString) {
             $("txtSearch").mojo.setValue(appModel.LastSearchString);
@@ -190,7 +178,18 @@ MainAssistant.prototype.activate = function(event) {
     }
 
     //Get ready for input!
+    Mojo.Event.listen($("listJumpLocations"), Mojo.Event.propertyChange, this.handleJumpChange.bind(this));
+    // Non-Mojo widgets
     this.controller.window.onresize = this.handleOrientationChanged.bind(this);
+    Mojo.Event.listen($("divTitle"), Mojo.Event.tap, this.handleTitleTap.bind(this));
+    $("btnClear").addEventListener("click", this.handleClearTap.bind(this));
+    $("imgMap").addEventListener("click", this.handleMapTap.bind(this));
+    this.keyupHandler = this.handleKeyUp.bindAsEventListener(this);
+    this.controller.document.addEventListener("keyup", this.keyupHandler, true);
+    $("imgWest").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgEast").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgNorth").addEventListener("click", this.handleDirTap.bind(this));
+    $("imgSouth").addEventListener("click", this.handleDirTap.bind(this));
 };
 
 /* UI Events */
@@ -326,7 +325,7 @@ MainAssistant.prototype.handleClearTap = function() {
     $("txtSearch").mojo.setValue("");
 
     //Uncheck all items in list
-    var listWidgetSetup = this.controller.getWidgetSetup("searchResultsList");
+    var listWidgetSetup = $WidgetSetup("searchResultsList");
     for (var i = 0; i < listWidgetSetup.model.items.length; i++) {
         listWidgetSetup.model.items[i].selectedState = false;
     }
@@ -535,26 +534,26 @@ MainAssistant.prototype.calculateControlsPosition = function() {
     div.style.height = newHeight + "px;"
     Mojo.Log.info("Viewer now: width " + newWidth + ", height " + newHeight);
 
-    this.controller.get('imgNorth').style.top = chromeHeight + "px";
-    this.controller.get('imgNorth').style.left = ((newWidth / 2) - 40) + "px";
-    this.controller.get('imgSouth').style.left = this.controller.get('imgNorth').style.left;
-    this.controller.get('imgSouth').style.top = useBottom + "px";
-    this.controller.get('imgWest').style.top = ((newHeight / 2) + (chromeHeight - 80)) + "px";
-    this.controller.get('imgEast').style.top = this.controller.get('imgWest').style.top;
+    $('imgNorth').style.top = chromeHeight + "px";
+    $('imgNorth').style.left = ((newWidth / 2) - 40) + "px";
+    $('imgSouth').style.left = $('imgNorth').style.left;
+    $('imgSouth').style.top = useBottom + "px";
+    $('imgWest').style.top = ((newHeight / 2) + (chromeHeight - 80)) + "px";
+    $('imgEast').style.top = $('imgWest').style.top;
 
-    this.controller.get('imgNorth').style.visibility = "visible";
-    this.controller.get('imgSouth').style.visibility = "visible";
-    this.controller.get('imgWest').style.visibility = "visible";
-    this.controller.get('imgEast').style.visibility = "visible";
+    $('imgNorth').style.visibility = "visible";
+    $('imgSouth').style.visibility = "visible";
+    $('imgWest').style.visibility = "visible";
+    $('imgEast').style.visibility = "visible";
 
     $("spinnerLoad").mojo.stop();
 }
 
 MainAssistant.prototype.hideControlsForResize = function() {
-    this.controller.get('imgNorth').style.visibility = "hidden";
-    this.controller.get('imgSouth').style.visibility = "hidden";
-    this.controller.get('imgWest').style.visibility = "hidden";
-    this.controller.get('imgEast').style.visibility = "hidden";
+    $('imgNorth').style.visibility = "hidden";
+    $('imgSouth').style.visibility = "hidden";
+    $('imgWest').style.visibility = "hidden";
+    $('imgEast').style.visibility = "hidden";
 }
 
 MainAssistant.prototype.disableUI = function(statusValue) {
@@ -582,11 +581,16 @@ MainAssistant.prototype.selectRoadTypeMenu = function() {
 MainAssistant.prototype.deactivate = function(event) {
     /* remove any event handlers you added in activate and do any other cleanup that should happen before
        this scene is popped or another scene is pushed on top */
-    // Non-Mojo widgets
-    Mojo.Event.stopListening(this.controller.get("divTitle"), Mojo.Event.tap, this.handleTitleTap);
-    $("imgSearchClear").removeEventListener("click", this.handleClearTap);
-    $("imgMap").removeEventListener("click", this.handleMapTap.bind(this));
+    Mojo.Event.stopListening($("listJumpLocations"), Mojo.Event.propertyChange, this.handleJumpChange);
+    this.controller.window.onresize = null;
+    Mojo.Event.stopListening($("divTitle"), Mojo.Event.tap, this.handleTitleTap);
+    $("btnClear").removeEventListener("click", this.handleClearTap);
+    $("imgMap").removeEventListener("click", this.handleMapTap);
     this.controller.document.removeEventListener("keyup", this.keyupHandler);
+    $("imgWest").removeEventListener("click", this.handleDirTap);
+    $("imgEast").removeEventListener("click", this.handleDirTap);
+    $("imgNorth").removeEventListener("click", this.handleDirTap);
+    $("imgSouth").removeEventListener("click", this.handleDirTap);
 };
 
 MainAssistant.prototype.cleanup = function(event) {

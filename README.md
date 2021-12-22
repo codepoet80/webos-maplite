@@ -1,8 +1,8 @@
-# Retro Maps client app for webOS
+# Map Lite retro maps client app for webOS
 
 Map Lite for legacy Palm/HP webOS devices, depends on back-end service listed below.
 
-Tested on Pre, Pre2, Veer and Touchpad. Now with Just Type search capability!
+Tested on Pre, Pre2, Pixi, Veer, Pre3 and Touchpad.
 
 Learn more about this app at: [http://maps.webosarchive.com](http://maps.webosarchive.com)
 
