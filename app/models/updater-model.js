@@ -1,7 +1,7 @@
 /*
 Updater Model - Mojo
- Version 0.6a
- Created: 2021
+ Version 1.0
+ Created: 2022
  Author: Jonathan Wise
  License: MIT
  Description: A model to check for and get updates from App Museum II web service.

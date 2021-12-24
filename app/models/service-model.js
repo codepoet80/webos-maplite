@@ -1,7 +1,7 @@
 /*
 Maps Service Model - Mojo
  Version 1.0
- Created: 2021
+ Created: 2021-2022
  Author: Jonathan Wise
  License: MIT
  Description: A model to interact with Retro Map service within a Mojo app.
