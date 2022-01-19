@@ -1,6 +1,8 @@
-# Map Lite retro maps client app for webOS
+# Map Lite
 
-Map Lite for legacy Palm/HP webOS devices, depends on back-end service listed below.
+![Share Space Icon](icon.png)
+
+Retro maps client for legacy Palm/HP webOS devices, depends on back-end service listed below.
 
 Tested on Pre, Pre2, Pixi, Veer, Pre3 and Touchpad.
 
