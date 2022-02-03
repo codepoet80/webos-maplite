@@ -10,7 +10,7 @@ Learn more about this app at: [http://maps.webosarchive.com](http://maps.webosar
 
 Uses [Retro Maps](https://github.com/codepoet80/retro-maps) which is hosted by [webOSArchive](http://www.webosarchive.com) for the webOS community without guarantee of privacy or performance. Illegal or illicit use strictly prohibited. 
 
-You can also self-host the services, see the [instructions here](https://github.com/codepoet80/retro-maps/blob/main/README.md).
+You can also self-host the services, see the [instructions here](https://github.com/codepoet80/retromaps-service/blob/master/readme.md).
 
 ## What is This?
 
